@@ -1,0 +1,15 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "intermodel"
+version = "0.0.1"
+dependencies = [
+    "openai",
+    "dhall",
+    "httpx",
+    "banana-dev",
+    "anthropic",
+    "tiktoken",
+]
