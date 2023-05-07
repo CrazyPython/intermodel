@@ -13,6 +13,16 @@ Its main features are:
  
 ## Installation
 
+Install as dependency:
+
+```
+git clone git@github.com:CrazyPython/intermodel.git
+cd my-project/
+pip3 install ../intermodel
+```
+
+Install as independent program:
+
 ```
 git clone git@github.com:CrazyPython/intermodel.git
 cd intermodel/
