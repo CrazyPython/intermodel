@@ -15,6 +15,6 @@ Its main features are:
 
 ```
 git clone git@github.com:CrazyPython/intermodel.git
-cd my-project/
-pip3 install ../intermodel
+cd intermodel/
+pip3 install .
 ```
