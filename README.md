@@ -10,3 +10,11 @@ Its main features are:
  - In progress: Support for fine-tuned and custom models
  - In progress: Strong typing
  - Todo: 
+ 
+## Installation
+
+```
+git clone git@github.com:CrazyPython/intermodel.git
+cd my-project/
+pip3 install ../intermodel
+```
