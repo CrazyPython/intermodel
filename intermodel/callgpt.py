@@ -347,7 +347,7 @@ class InteractiveIntermodel(cmd.Cmd):
 
     def do_c(self, arg):
         """
-        Send a completion request to a modelOutputs
+        Send a completion request to a model
         Usage: c <model> <prompt>
         """
         model = arg.split()[0]
