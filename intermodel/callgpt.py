@@ -19,9 +19,9 @@ MODEL_TO_AUTHOR = {
 MODEL_TO_BANANA_MODEL_KEY = {}
 
 
-async def send_completion_request(
+async def complete(
     model,
-    vendor,
+    vendor=None,
     prompt=None,
     temperature=None,
     top_p=None,
@@ -43,6 +43,10 @@ async def send_completion_request(
     # todo: detect model not found on all vendors and throw the same exception
     if authorization is None:
         authorization = {}
+    if authorization.get("openai_api_key") is None:
+        authorization["openai_api_key"] = os.getenv("OPENAI_API_KEY")
+    if vendor is None:
+        vendor = pick_vendor(model)
     if vendor == "openai":
         if user_id is None:
             hashed_user_id = None
@@ -62,7 +66,7 @@ async def send_completion_request(
             "presence_penalty": presence_penalty,
             "stop": stop,
             "user": hashed_user_id,
-            "api_key": authorization.get("openai_api_key"),
+            "api_key": authorization["openai_api_key"],
             "logit_bias": logit_bias,
             "n": num_completions,
             **kwargs,
@@ -271,17 +275,17 @@ async def send_completion_request(
         raise NotImplementedError(f"Unknown vendor {vendor}")
 
 
-def send_completion_request_sync(*args, **kwargs):
-    return asyncio.run(send_completion_request(*args, **kwargs))
+def complete_sync(*args, **kwargs):
+    return asyncio.run(complete(*args, **kwargs))
 
 
 def tokenize(model, string) -> List[int]:
     model = MODEL_ALIASES.get(model, model)
     vendor = pick_vendor(model)
     if vendor == 'openai':
-        # tiktoken internally caches loaded encodings
-        encoder = tiktoken.encoding_for_model(model)
-        return encoder.encode(string)
+        # tiktoken internally caches loaded tokenizers
+        tokenizer = tiktoken.encoding_for_model(model)
+        return tokenizer.encode(string)
     elif vendor == 'anthropic':
         # anthropic caches the tokenizer
         # XXX: this may send synchronous network requests, could be downloaded as part of build
@@ -326,7 +330,7 @@ class InteractiveIntermodel(cmd.Cmd):
         """Send a completion request to a model"""
         model = arg.split()[0]
         prompt = arg[arg.index(model) + len(model) + 1:]
-        print(send_completion_request_sync(model, pick_vendor(model), prompt))
+        print(complete_sync(model, pick_vendor(model), prompt))
 
     def do_t(self, arg):
         """Tokenize a model"""
