@@ -1,3 +1,7 @@
+#!/usr/bin/env python
+
+
+import traceback
 import asyncio
 import cmd
 import datetime
@@ -11,6 +15,11 @@ import openai
 import anthropic
 import httpx
 import tiktoken as tiktoken
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 MODEL_ALIASES = {}
 MODEL_TO_AUTHOR = {
@@ -75,7 +84,17 @@ async def complete(
         for key, value in dict(api_arguments).items():
             if value is None:
                 del api_arguments[key]
-        api_response = await openai.Completion.acreate(**api_arguments)
+        if model.startswith("gpt-3.5") or model.startswith("gpt-4"):
+            api_arguments["messages"] = [{"role": "user", "content": api_arguments["prompt"]}]
+            if "prompt" in api_arguments:
+                del api_arguments["prompt"]
+            if "logprobs" in api_arguments:
+                del api_arguments["logprobs"]
+            api_response = await openai.ChatCompletion.acreate(**api_arguments)
+            for c in api_response["choices"]:
+                c["text"] = c["message"]["content"]
+        else:
+            api_response = await openai.Completion.acreate(**api_arguments)
         return {
             "prompt": {"text": prompt if prompt is not None else "<|endoftext|>"},
             "completions": [
@@ -327,16 +346,30 @@ class InteractiveIntermodel(cmd.Cmd):
     prompt = 'intermodel> '
 
     def do_c(self, arg):
-        """Send a completion request to a model"""
+        """
+        Send a completion request to a model
+        Usage: c <model> <prompt>
+        """
         model = arg.split()[0]
         prompt = arg[arg.index(model) + len(model) + 1:]
-        print(complete_sync(model, pick_vendor(model), prompt))
+        try:
+            print(complete_sync(model, pick_vendor(model), prompt))
+        except NotImplementedError:
+            print(f"Not implemented for model {model}")
+            print(traceback.format_exc())
 
     def do_t(self, arg):
-        """Tokenize a model"""
+        """
+        Tokenize a model
+        Usage: t <model> <prompt>
+        """
         model = arg.split()[0]
         prompt = arg[arg.index(model) + len(model) + 1:]
-        print(tokenize(model, prompt))
+        try:
+            print(tokenize(model, prompt))
+        except NotImplementedError:
+            print(f"Not implemented for model {model}")
+            print(traceback.format_exc())
 
     def do_EOF(self, arg):
         """Exit"""
