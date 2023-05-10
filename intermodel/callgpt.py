@@ -38,7 +38,7 @@ async def complete(
     stop=None,
     frequency_penalty: Union[float, int] = 0,
     presence_penalty: Union[float, int] = 0,
-    num_completions: int = 1,
+    num_completions: int = None,
     top_k=None,
     repetition_penalty: Union[float, int] = 1,
     tfs=1,
@@ -127,7 +127,7 @@ async def complete(
                 },
                 json={
                     "prompt": prompt,
-                    "numResults": num_completions,
+                    "numResults": num_completions or 1,
                     "maxTokens": max_tokens,
                     # "stopSequences": stop,
                     "topP": top_p,
@@ -222,7 +222,7 @@ async def complete(
             prompt = prompt + " <extra_id_0>"
         async with httpx.AsyncClient() as client:
             http_response = await client.post(
-                f'https://shared-api.{model}/forefront.link/organization/{os.getenv("FOREFRONT_ORGANIZATION")}/',
+                f'https://shared-api.{model}',
                 headers={
                     "Authorization": "Bearer "
                     + authorization.get(
@@ -253,7 +253,7 @@ async def complete(
             "usage": NotImplemented,
         }
     elif vendor == "anthropic":
-        if num_completions != 1:
+        if num_completions not in [None, 1]:
             raise NotImplementedError("Anthropic only supports num_completions=1")
         client = anthropic.Client(
             authorization.get("anthropic_api_key", os.getenv("ANTHROPIC_API_KEY"))
