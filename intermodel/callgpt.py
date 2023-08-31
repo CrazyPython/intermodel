@@ -1,6 +1,5 @@
 #!/usr/bin/env python
-
-
+import re
 import traceback
 import asyncio
 import cmd
@@ -8,18 +7,19 @@ import datetime
 import os
 import uuid
 import hashlib
-from typing import Union, List
+from typing import Union, List, Optional
 
 import banana_dev as banana
 import openai
 import anthropic
 import httpx
-import tiktoken as tiktoken
+import tiktoken
+
+import intermodel.callgpt_faker
 
 from dotenv import load_dotenv
 
 load_dotenv()
-
 
 MODEL_ALIASES = {}
 MODEL_TO_AUTHOR = {
@@ -30,33 +30,31 @@ MODEL_TO_BANANA_MODEL_KEY = {}
 
 async def complete(
     model,
-    vendor=None,
     prompt=None,
     temperature=None,
     top_p=None,
     max_tokens=None,
-    stop=None,
+    stop: Optional[List[str]] = None,
     frequency_penalty: Union[float, int] = 0,
     presence_penalty: Union[float, int] = 0,
     num_completions: int = None,
     top_k=None,
     repetition_penalty: Union[float, int] = 1,
     tfs=1,
-    authorization=None,
     user_id=None,
     logit_bias=None,
+    vendor=None,
+    vendor_config=None,
     **kwargs,
 ):
     model = MODEL_ALIASES.get(model, model)
     # todo: multiple completions, top k, logit bias for all vendors
     # todo: detect model not found on all vendors and throw the same exception
-    if authorization is None:
-        authorization = {}
-    if authorization.get("openai_api_key") is None:
-        authorization["openai_api_key"] = os.getenv("OPENAI_API_KEY")
     if vendor is None:
-        vendor = pick_vendor(model)
-    if vendor == "openai":
+        vendor = pick_vendor(model, vendor_config)
+    if vendor_config is not None and vendor in vendor_config:
+        kwargs = {**vendor_config[vendor]["config"], **kwargs}
+    if vendor.startswith("openai"):
         if user_id is None:
             hashed_user_id = None
         else:
@@ -65,6 +63,8 @@ async def complete(
             hash_object.update(str(user_id).encode("utf-8"))
             hashed_user_id = hash_object.hexdigest()
 
+        rest = dict(kwargs)
+        rest.pop("openai_api_key")
         api_arguments = {
             "model": model,
             "prompt": prompt,
@@ -75,17 +75,23 @@ async def complete(
             "presence_penalty": presence_penalty,
             "stop": stop,
             "user": hashed_user_id,
-            "api_key": authorization["openai_api_key"],
+            "api_key": kwargs["openai_api_key"],
             "logit_bias": logit_bias,
             "n": num_completions,
-            **kwargs,
+            **rest,
         }
         # remove None values, OpenAI API doesn't like them
         for key, value in dict(api_arguments).items():
             if value is None:
                 del api_arguments[key]
-        if model.startswith("gpt-3.5") or model.startswith("gpt-4"):
-            api_arguments["messages"] = [{"role": "user", "content": api_arguments["prompt"]}]
+        if (
+            model.startswith("gpt-3.5")
+            or model.startswith("gpt-4")
+            and not model.endswith("-base")
+        ):
+            api_arguments["messages"] = [
+                {"role": "user", "content": api_arguments["prompt"]}
+            ]
             if "prompt" in api_arguments:
                 del api_arguments["prompt"]
             if "logprobs" in api_arguments:
@@ -110,10 +116,10 @@ async def complete(
             "id": api_response.id,
             "created": api_response.created,
             "usage": {
-                "prompt_tokens": api_response.usage.prompt_tokens,
-                # if the completion is empty, the value will be missing
-                "completion_tokens": api_response.usage.get("completion_tokens", 0),
-                "charged_tokens": api_response.usage.total_tokens,
+                # "prompt_tokens": api_response.usage.prompt_tokens,
+                # # if the completion is empty, the value will be missing
+                # "completion_tokens": api_response.usage.get("completion_tokens", 0),
+                # "charged_tokens": api_response.usage.total_tokens,
                 "vendor": vendor,
             },
         }
@@ -123,7 +129,7 @@ async def complete(
                 f"https://api.ai21.com/studio/v1/{model}/complete",
                 headers={
                     "Authorization": "Bearer "
-                    + authorization.get("ai21_api_key", os.environ.get("AI21_API_KEY"))
+                    + kwargs.get("ai21_api_key", os.environ.get("AI21_API_KEY"))
                 },
                 json={
                     "prompt": prompt,
@@ -172,7 +178,7 @@ async def complete(
                 f"https://api-inference.huggingface.co/models/{model}",
                 headers={
                     "Authorization": "Bearer "
-                    + authorization.get(
+                    + kwargs.get(
                         "huggingface_api_key", os.environ.get("HUGGINGFACE_API_KEY")
                     )
                 },
@@ -190,7 +196,7 @@ async def complete(
     elif vendor == "banana":
         # this is not a complete implementation
         api_response = banana.run(
-            authorization.get("banana_api_key", os.getenv("BANANA_API_KEY")),
+            kwargs.get("banana_api_key", os.getenv("BANANA_API_KEY")),
             MODEL_TO_BANANA_MODEL_KEY[model],
             model_inputs={
                 "prompt": prompt,
@@ -222,12 +228,10 @@ async def complete(
             prompt = prompt + " <extra_id_0>"
         async with httpx.AsyncClient() as client:
             http_response = await client.post(
-                f'https://shared-api.{model}',
+                f"https://shared-api.{model}",
                 headers={
                     "Authorization": "Bearer "
-                    + authorization.get(
-                        "forefront_api_key", os.getenv("FOREFRONT_API_KEY")
-                    )
+                    + kwargs.get("forefront_api_key", os.getenv("FOREFRONT_API_KEY"))
                 },
                 json={
                     "text": prompt,
@@ -256,7 +260,7 @@ async def complete(
         if num_completions not in [None, 1]:
             raise NotImplementedError("Anthropic only supports num_completions=1")
         client = anthropic.Client(
-            authorization.get("anthropic_api_key", os.getenv("ANTHROPIC_API_KEY"))
+            kwargs.get("anthropic_api_key", os.getenv("ANTHROPIC_API_KEY"))
         )
         response = await client.acompletion(
             model=model,
@@ -290,6 +294,43 @@ async def complete(
                 "vendor": vendor,
             },
         }
+    elif vendor == "replicate":
+        async with httpx.AsyncClient() as client:
+            initial_response = await client.post(
+                "https://api.replicate.com/v1/predictions",
+                json={
+                    "version": model.split(":")[1],
+                    "prompt": prompt,
+                    "max_length": max_tokens,
+                    "temperature": temperature,
+                    "top_p": top_p,
+                    "repetition_penalty": repetition_penalty,
+                    "stop_sequence": stop[0],
+                },
+            )
+            initial_response.raise_for_status()
+            initial_response_json = initial_response.json()
+            response = initial_response
+            while response.json()["status"] != "succeeded":
+                await asyncio.sleep(0.25)
+                response = await client.get(
+                    f"https://api.replicate.com/v1/predictions/{initial_response_json['id']}"
+                )
+                response.raise_for_status()
+        return {
+            "prompt": {"text": prompt},
+            "completions": {
+    
+    }
+        }
+    elif vendor == "fake-local":
+        return intermodel.callgpt_faker.fake_local(
+            model=model,
+            vendor=vendor,
+            prompt=prompt,
+            max_tokens=max_tokens,
+            num_completions=num_completions,
+        )
     else:
         raise NotImplementedError(f"Unknown vendor {vendor}")
 
@@ -301,11 +342,11 @@ def complete_sync(*args, **kwargs):
 def tokenize(model, string) -> List[int]:
     model = MODEL_ALIASES.get(model, model)
     vendor = pick_vendor(model)
-    if vendor == 'openai':
+    if vendor == "openai":
         # tiktoken internally caches loaded tokenizers
         tokenizer = tiktoken.encoding_for_model(model)
         return tokenizer.encode(string)
-    elif vendor == 'anthropic':
+    elif vendor == "anthropic":
         # anthropic caches the tokenizer
         # XXX: this may send synchronous network requests, could be downloaded as part of build
         tokenizer = anthropic.get_tokenizer()
@@ -315,7 +356,13 @@ def tokenize(model, string) -> List[int]:
         raise NotImplementedError(f"I don't know how to tokenize {model}")
 
 
-def pick_vendor(model):
+def pick_vendor(model, custom_config=None):
+    if custom_config is not None:
+        for vendor_name, vendor in custom_config.items():
+            if vendor["provides"] is not None:
+                for pattern in vendor["provides"]:
+                    if re.match(pattern, model):
+                        return vendor_name
     model = MODEL_ALIASES.get(model, model)
     if (
         "ada" in model
@@ -325,11 +372,11 @@ def pick_vendor(model):
         or "cushman" in model
         or "text-moderation-" in model
         or model.startswith("ft-")
-        or model.startswith('gpt-4')
-        or model.startswith('gpt-3.5-')
+        or model.startswith("gpt-4")
+        or model.startswith("gpt-3.5-")
     ):
         return "openai"
-    elif "j1-" in model or model.startswith('j2-'):
+    elif "j1-" in model or model.startswith("j2-"):
         return "ai21"
     elif "forefront" in model:
         return "forefront"
@@ -342,8 +389,42 @@ def pick_vendor(model):
         raise NotImplementedError("Unknown model")
 
 
+def max_token_length(model):
+    """
+    The maximum number of tokens in the prompt and completion
+    """
+    if model == "gpt-4-32k":
+        return 32769
+    elif model.startswith("gpt-4"):
+        return 8193
+    elif model == "code-davinci-002":
+        return 8001
+    elif model.startswith("code"):
+        raise ValueError("Unknown maximum")
+    elif model == "gpt-3.5-turbo-16k":
+        return 16385
+    elif model == "gpt-3.5-turbo":
+        return 4097
+    elif model == "text-davinci-003" or model == "text-davinci-002":
+        return 4097
+    elif model == "text-embedding-ada-002":
+        return 8191
+    elif model.startswith("text-embedding-") and model.endswith("-001"):
+        return 2046
+    elif (
+        "ada" in model
+        or "babbage" in model
+        or "curie" in model
+        or "davinci" in model
+        or "cushman" in model
+    ):
+        return 2049
+    else:
+        raise NotImplementedError(f"Token cap not known for model {model}")
+
+
 class InteractiveIntermodel(cmd.Cmd):
-    prompt = 'intermodel> '
+    prompt = "intermodel> "
 
     def do_c(self, arg):
         """
@@ -351,7 +432,7 @@ class InteractiveIntermodel(cmd.Cmd):
         Usage: c <model> <prompt>
         """
         model = arg.split()[0]
-        prompt = arg[arg.index(model) + len(model) + 1:]
+        prompt = arg[arg.index(model) + len(model) + 1 :]
         try:
             print(complete_sync(model, pick_vendor(model), prompt))
         except NotImplementedError:
@@ -364,7 +445,7 @@ class InteractiveIntermodel(cmd.Cmd):
         Usage: t <model> <prompt>
         """
         model = arg.split()[0]
-        prompt = arg[arg.index(model) + len(model) + 1:]
+        prompt = arg[arg.index(model) + len(model) + 1 :]
         try:
             print(tokenize(model, prompt))
         except NotImplementedError:
@@ -376,5 +457,5 @@ class InteractiveIntermodel(cmd.Cmd):
         return True
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     InteractiveIntermodel().cmdloop()
