@@ -11,6 +11,8 @@ banana-dev = "*"
 anthropic = "*"
 tiktoken = "*"
 python-dotenv = "*"
+replicate = "*"
+asgiref = "*"
 
 [dev-packages]
 black = "*"

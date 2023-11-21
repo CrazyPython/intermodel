@@ -73,7 +73,7 @@ async def complete(
             "top_p": top_p,
             "frequency_penalty": frequency_penalty,
             "presence_penalty": presence_penalty,
-            "stop": stop,
+            "stop": stop if stop != [] else None,
             "user": hashed_user_id,
             "api_key": kwargs["openai_api_key"],
             "logit_bias": logit_bias,
@@ -339,18 +339,47 @@ def complete_sync(*args, **kwargs):
     return asyncio.run(complete(*args, **kwargs))
 
 
-def tokenize(model, string) -> List[int]:
+def tokenize(model: str, string: str) -> List[int]:
     model = MODEL_ALIASES.get(model, model)
-    vendor = pick_vendor(model)
-    if vendor == "openai":
+    try:
+        vendor = pick_vendor(model)
+    except NotImplementedError:
+        vendor = None
+    if vendor == "openai" or model == "gpt2":
         # tiktoken internally caches loaded tokenizers
         tokenizer = tiktoken.encoding_for_model(model)
-        return tokenizer.encode(string)
+        # encode special tokens as normal
+        # XXX: make this an option
+        return tokenizer.encode(string, disallowed_special={})
     elif vendor == "anthropic":
         # anthropic caches the tokenizer
         # XXX: this may send synchronous network requests, could be downloaded as part of build
         tokenizer = anthropic.get_tokenizer()
         encoded_text = tokenizer.encode(string)
+        return encoded_text.ids
+    else:
+        raise NotImplementedError(f"I don't know how to tokenize {model}")
+
+
+def count_tokens(model: str, string: str) -> int:
+    return len(tokenize(model, string))
+
+
+def untokenize(model: str, string: List[int]) -> str:
+    model = MODEL_ALIASES.get(model, model)
+    try:
+        vendor = pick_vendor(model)
+    except NotImplementedError:
+        vendor = None
+    if vendor == "openai" or model == "gpt2":
+        # tiktoken internally caches loaded tokenizers
+        tokenizer = tiktoken.encoding_for_model(model)
+        return tokenizer.decode(string)
+    elif vendor == "anthropic":
+        # anthropic caches the tokenizer
+        # XXX: this may send synchronous network requests, could be downloaded as part of build
+        tokenizer = anthropic.get_tokenizer()
+        encoded_text = tokenizer.decode(string)
         return encoded_text.ids
     else:
         raise NotImplementedError(f"I don't know how to tokenize {model}")
@@ -403,7 +432,11 @@ def max_token_length(model):
         raise ValueError("Unknown maximum")
     elif model == "gpt-3.5-turbo-16k":
         return 16385
+    elif model in ('babbage-002', 'davinci-002'):
+        return 16385
     elif model == "gpt-3.5-turbo":
+        return 4097
+    elif model == "gpt-3.5-turbo-instruct":
         return 4097
     elif model == "text-davinci-003" or model == "text-davinci-002":
         return 4097
