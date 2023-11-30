@@ -7,7 +7,6 @@ name = "intermodel"
 version = "0.0.9"
 dependencies = [
     "openai",
-    "dhall",
     "httpx",
     "banana-dev",
     "anthropic",
