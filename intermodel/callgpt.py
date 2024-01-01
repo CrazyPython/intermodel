@@ -9,9 +9,6 @@ import uuid
 import hashlib
 from typing import Union, List, Optional
 
-import banana_dev as banana
-import openai
-import anthropic
 import httpx
 import tiktoken
 
@@ -55,6 +52,7 @@ async def complete(
     if vendor_config is not None and vendor in vendor_config:
         kwargs = {**vendor_config[vendor]["config"], **kwargs}
     if vendor.startswith("openai"):
+        import openai
         if user_id is None:
             hashed_user_id = None
         else:
@@ -194,6 +192,7 @@ async def complete(
                 },
             )
     elif vendor == "banana":
+        import banana_dev as banana
         # this is not a complete implementation
         api_response = banana.run(
             kwargs.get("banana_api_key", os.getenv("BANANA_API_KEY")),
@@ -257,6 +256,7 @@ async def complete(
             "usage": NotImplemented,
         }
     elif vendor == "anthropic":
+        import anthropic
         if num_completions not in [None, 1]:
             raise NotImplementedError("Anthropic only supports num_completions=1")
         client = anthropic.Client(
