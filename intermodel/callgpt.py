@@ -440,7 +440,7 @@ def max_token_length(model):
         return 4097
     elif model == "text-davinci-003" or model == "text-davinci-002":
         return 4097
-    elif model == "text-embedding-ada-002":
+    elif model in ("text-embedding-ada-002", "text-embedding-3-small", "text-embedding-3-large"):
         return 8191
     elif model.startswith("text-embedding-") and model.endswith("-001"):
         return 2046
