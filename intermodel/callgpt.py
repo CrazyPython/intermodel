@@ -350,7 +350,7 @@ def tokenize(model: str, string: str) -> List[int]:
         tokenizer = tiktoken.encoding_for_model(model)
         # encode special tokens as normal
         # XXX: make this an option
-        return tokenizer.encode(string, disallowed_special={})
+        return tokenizer.encode(string, allowed_special="all")
     elif vendor == "anthropic":
         # anthropic caches the tokenizer
         # XXX: this may send synchronous network requests, could be downloaded as part of build
