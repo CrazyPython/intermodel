@@ -10,7 +10,9 @@ import hashlib
 from typing import Union, List, Optional
 
 import httpx
+import openai
 import tiktoken
+import tenacity
 
 import intermodel.callgpt_faker
 
@@ -25,6 +27,11 @@ MODEL_TO_AUTHOR = {
 MODEL_TO_BANANA_MODEL_KEY = {}
 
 
+@tenacity.retry(
+    retry=tenacity.retry_if_exception_type(openai.RateLimitError),
+    wait=tenacity.wait_random_exponential(min=1, max=60),
+    stop=tenacity.stop_after_attempt(6),
+)
 async def complete(
     model,
     prompt=None,
@@ -53,6 +60,7 @@ async def complete(
         kwargs = {**vendor_config[vendor]["config"], **kwargs}
     if vendor.startswith("openai"):
         import openai
+
         if user_id is None:
             hashed_user_id = None
         else:
@@ -193,6 +201,7 @@ async def complete(
             )
     elif vendor == "banana":
         import banana_dev as banana
+
         # this is not a complete implementation
         api_response = banana.run(
             kwargs.get("banana_api_key", os.getenv("BANANA_API_KEY")),
@@ -257,6 +266,7 @@ async def complete(
         }
     elif vendor == "anthropic":
         import anthropic
+
         if num_completions not in [None, 1]:
             raise NotImplementedError("Anthropic only supports num_completions=1")
         client = anthropic.Client(
@@ -317,12 +327,7 @@ async def complete(
                     f"https://api.replicate.com/v1/predictions/{initial_response_json['id']}"
                 )
                 response.raise_for_status()
-        return {
-            "prompt": {"text": prompt},
-            "completions": {
-    
-    }
-        }
+        return {"prompt": {"text": prompt}, "completions": {}}
     elif vendor == "fake-local":
         return intermodel.callgpt_faker.fake_local(
             model=model,
@@ -432,7 +437,7 @@ def max_token_length(model):
         raise ValueError("Unknown maximum")
     elif model == "gpt-3.5-turbo-16k":
         return 16385
-    elif model in ('babbage-002', 'davinci-002'):
+    elif model in ("babbage-002", "davinci-002"):
         return 16385
     elif model == "gpt-3.5-turbo":
         return 4097
@@ -440,7 +445,11 @@ def max_token_length(model):
         return 4097
     elif model == "text-davinci-003" or model == "text-davinci-002":
         return 4097
-    elif model in ("text-embedding-ada-002", "text-embedding-3-small", "text-embedding-3-large"):
+    elif model in (
+        "text-embedding-ada-002",
+        "text-embedding-3-small",
+        "text-embedding-3-large",
+    ):
         return 8191
     elif model.startswith("text-embedding-") and model.endswith("-001"):
         return 2046

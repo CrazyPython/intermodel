@@ -12,6 +12,7 @@ tiktoken = "*"
 python-dotenv = "*"
 replicate = "*"
 asgiref = "*"
+tenacity = "*"
 
 [dev-packages]
 black = "*"

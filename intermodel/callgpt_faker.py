@@ -1,5 +1,6 @@
 from typing import Union, List, Optional
 
+
 def fake_local(
     model,
     prompt=None,
@@ -22,6 +23,7 @@ def fake_local(
     import random
     import string
     import time
+
     enc: tiktoken.Encoding = tiktoken.encoding_for_model(model)
     valid_tokens = list(enc._mergeable_ranks.keys())
     completions = []
@@ -29,11 +31,11 @@ def fake_local(
         num_completions = 1
     for i in range(num_completions):
         n_tokens = random.randint(0, max_tokens)
-        s = ''
+        s = ""
         # try to add tokens until we reach n_tokens
         while len(enc.encode(s)) < n_tokens:
             try:
-                new_token = random.choice(valid_tokens).decode('utf-8')
+                new_token = random.choice(valid_tokens).decode("utf-8")
             except UnicodeDecodeError:
                 continue
             if stop is not None and new_token in stop:
@@ -50,18 +52,22 @@ def fake_local(
     completion_tokens = sum([len(enc.encode(item)) for item in completions])
 
     return {
-        "prompt": {"text": prompt if prompt is not None else get_default_prompt(model, vendor)},
+        "prompt": {
+            "text": prompt if prompt is not None else get_default_prompt(model, vendor)
+        },
         "completions": [
             {
                 "text": completion,
                 "finish_reason": {
-                    "reason": 'length' if len(enc.encode(completion)) == max_tokens else 'stop'
+                    "reason": "length"
+                    if len(enc.encode(completion)) == max_tokens
+                    else "stop"
                 },
             }
             for completion in completions
         ],
         "model": model,
-        "id": f'fake-{[random.choice(string.ascii_letters) for i in range(30)]}',
+        "id": f"fake-{[random.choice(string.ascii_letters) for i in range(30)]}",
         "created": time.time(),
         "usage": {
             # openai always returns prompt_tokens: 1 minimum, even if prompt=""
@@ -77,20 +83,22 @@ def fake_local(
 """
 Return the default prompt used when prompt=None
 """
+
+
 def get_default_prompt(model, vendor):
-    if vendor == 'openai':
-        return '<|endoftext|>'
+    if vendor == "openai":
+        return "<|endoftext|>"
     else:
-        return ''
+        return ""
 
 
 def fake_remote_openai(model):
     import tiktoken
+
     enc: tiktoken.Encoding = tiktoken.encoding_for_model(model)
-    if enc.name == 'cl100k_base':
-        return 'text-embedding-ada-002'
-    elif enc.name == 'r50k_base':
-        return 'ada'
-    elif enc.name.startswith('p50k'):
-        return 'text-davinci-edit-001'
-    
+    if enc.name == "cl100k_base":
+        return "text-embedding-ada-002"
+    elif enc.name == "r50k_base":
+        return "ada"
+    elif enc.name.startswith("p50k"):
+        return "text-davinci-edit-001"
