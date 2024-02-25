@@ -33,7 +33,7 @@ def fake_local(
         n_tokens = random.randint(0, max_tokens)
         s = ""
         # try to add tokens until we reach n_tokens
-        while len(enc.encode(s)) < n_tokens:
+        while len(enc.encode(s, allowed_special="all")) < n_tokens:
             try:
                 new_token = random.choice(valid_tokens).decode("utf-8")
             except UnicodeDecodeError:
@@ -45,7 +45,7 @@ def fake_local(
             else:
                 s += new_token
         # trim until we are below it
-        while len(enc.encode(s)) > n_tokens:
+        while len(enc.encode(s, allowed_special="all")) > n_tokens:
             s = s[:-1]
         completions.append(s)
 
@@ -60,7 +60,7 @@ def fake_local(
                 "text": completion,
                 "finish_reason": {
                     "reason": "length"
-                    if len(enc.encode(completion)) == max_tokens
+                    if len(enc.encode(completion, allowed_special="all")) == max_tokens
                     else "stop"
                 },
             }
@@ -71,10 +71,10 @@ def fake_local(
         "created": time.time(),
         "usage": {
             # openai always returns prompt_tokens: 1 minimum, even if prompt=""
-            "prompt_tokens": max(len(enc.encode(prompt)), 1),
+            "prompt_tokens": max(len(enc.encode(prompt, allowed_special="all")), 1),
             # if the completion is empty, the value will be missing
             "completion_tokens": completion_tokens,
-            "charged_tokens": len(enc.encode(prompt)) + completion_tokens,
+            "charged_tokens": len(enc.encode(prompt, allowed_special="all")) + completion_tokens,
             "vendor": vendor,
         },
     }

@@ -28,7 +28,7 @@ MODEL_TO_BANANA_MODEL_KEY = {}
 
 
 @tenacity.retry(
-    retry=tenacity.retry_if_exception_type(openai.RateLimitError),
+    retry=tenacity.retry_if_exception_type(openai.error.RateLimitError),
     wait=tenacity.wait_random_exponential(min=1, max=60),
     stop=tenacity.stop_after_attempt(6),
 )
@@ -357,6 +357,7 @@ def tokenize(model: str, string: str) -> List[int]:
         # XXX: make this an option
         return tokenizer.encode(string, allowed_special="all")
     elif vendor == "anthropic":
+        import anthropic
         # anthropic caches the tokenizer
         # XXX: this may send synchronous network requests, could be downloaded as part of build
         tokenizer = anthropic.get_tokenizer()
