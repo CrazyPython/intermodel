@@ -9,9 +9,7 @@ import uuid
 import hashlib
 from typing import Union, List, Optional
 
-import httpx
 import openai
-import tiktoken
 import tenacity
 
 import intermodel.callgpt_faker
@@ -130,6 +128,7 @@ async def complete(
             },
         }
     elif vendor == "ai21":
+        import httpx
         async with httpx.AsyncClient() as client:
             http_response = await client.post(
                 f"https://api.ai21.com/studio/v1/{model}/complete",
@@ -178,6 +177,7 @@ async def complete(
     elif vendor == "textsynth":
         pass
     elif vendor == "huggingface":
+        import httpx
         # todo: freq and pres penalties
         async with httpx.AsyncClient() as client:
             http_response = await client.post(
@@ -232,6 +232,7 @@ async def complete(
             },
         }
     elif vendor == "forefront":
+        import httpx
         if "t5-20b" in model:
             prompt = prompt + " <extra_id_0>"
         async with httpx.AsyncClient() as client:
@@ -305,6 +306,7 @@ async def complete(
             },
         }
     elif vendor == "replicate":
+        import httpx
         async with httpx.AsyncClient() as client:
             initial_response = await client.post(
                 "https://api.replicate.com/v1/predictions",
@@ -345,6 +347,7 @@ def complete_sync(*args, **kwargs):
 
 
 def tokenize(model: str, string: str) -> List[int]:
+    import tiktoken
     model = MODEL_ALIASES.get(model, model)
     try:
         vendor = pick_vendor(model)
@@ -378,10 +381,12 @@ def untokenize(model: str, string: List[int]) -> str:
     except NotImplementedError:
         vendor = None
     if vendor == "openai" or model == "gpt2":
+        import tiktoken
         # tiktoken internally caches loaded tokenizers
         tokenizer = tiktoken.encoding_for_model(model)
         return tokenizer.decode(string)
     elif vendor == "anthropic":
+        import anthropic
         # anthropic caches the tokenizer
         # XXX: this may send synchronous network requests, could be downloaded as part of build
         tokenizer = anthropic.get_tokenizer()
