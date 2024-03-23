@@ -1,15 +1,26 @@
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
-[project]
+[tool.poetry]
 name = "intermodel"
 version = "0.0.18"
-dependencies = [
-    "openai",
-    "httpx",
-    "banana-dev",
-    "anthropic",
-    "tiktoken",
-    "python-dotenv"
-]
+description = ""
+authors = ["Your Name <you@example.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+openai = "*"
+httpx = "*"
+banana-dev = "*"
+anthropic = "*"
+tiktoken = "*"
+python-dotenv = "*"
+replicate = "*"
+asgiref = "*"
+tenacity = "*"
+
+
+[tool.poetry.group.dev.dependencies]
+black = "*"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
