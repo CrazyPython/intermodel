@@ -367,7 +367,27 @@ def tokenize(model: str, string: str) -> List[int]:
         encoded_text = tokenizer.encode(string)
         return encoded_text.ids
     else:
-        raise NotImplementedError(f"I don't know how to tokenize {model}")
+        import huggingface_hub
+        try:
+            tokenizer = get_hf_tokenizer(model)
+        except huggingface_hub.utils._errors.GatedRepoError:
+            raise ValueError(f"Log in with huggingface-cli to access {model}")
+        except huggingface_hub.utils._errors.RepositoryNotFoundError:
+            raise NotImplementedError(f"I don't know how to tokenize {model}")
+        else:
+            return tokenizer.encode(string).ids
+
+
+hf_tokenizers = {}
+
+
+def get_hf_tokenizer(hf_name):
+    if hf_name in hf_tokenizers:
+        return hf_tokenizers[hf_name]
+    else:
+        from tokenizers import Tokenizer
+        hf_tokenizers[hf_name] = Tokenizer.from_pretrained(hf_name, auth_token=True)  # log in with "huggingface-cli login"
+        return hf_tokenizers[hf_name]
 
 
 def count_tokens(model: str, string: str) -> int:

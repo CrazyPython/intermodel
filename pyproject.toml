@@ -16,6 +16,7 @@ python-dotenv = "*"
 replicate = "*"
 asgiref = "*"
 tenacity = "*"
+tokenizers = "^0.19.1"
 
 
 [tool.poetry.group.dev.dependencies]
