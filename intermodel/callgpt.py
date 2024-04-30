@@ -367,13 +367,15 @@ def tokenize(model: str, string: str) -> List[int]:
         encoded_text = tokenizer.encode(string)
         return encoded_text.ids
     else:
-        import huggingface_hub
         try:
             tokenizer = get_hf_tokenizer(model)
-        except huggingface_hub.utils._errors.GatedRepoError:
-            raise ValueError(f"Log in with huggingface-cli to access {model}")
-        except huggingface_hub.utils._errors.RepositoryNotFoundError:
-            raise NotImplementedError(f"I don't know how to tokenize {model}")
+        except Exception as e:
+            if e.__class__.__name__ == "GatedRepoError":
+                raise ValueError(f"Log in with huggingface-cli to access {model}")
+            elif e.__class__.__name__ == "RepositoryNotFoundError":
+                raise NotImplementedError(f"I don't know how to tokenize {model}")
+            else:
+                raise
         else:
             return tokenizer.encode(string).ids
 
