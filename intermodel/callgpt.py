@@ -24,9 +24,14 @@ MODEL_TO_AUTHOR = {
 }
 MODEL_TO_BANANA_MODEL_KEY = {}
 
+try:
+    OpenAIRateLimitError = openai.error.RateLimitError
+except AttributeError:
+    OpenAIRateLimitError = openai.RateLimitError
+
 
 @tenacity.retry(
-    retry=tenacity.retry_if_exception_type(openai.error.RateLimitError),
+    retry=tenacity.retry_if_exception_type(OpenAIRateLimitError),
     wait=tenacity.wait_random_exponential(min=1, max=60),
     stop=tenacity.stop_after_attempt(6),
 )
@@ -393,11 +398,10 @@ def get_hf_tokenizer(hf_name):
     if hf_name in hf_tokenizers:
         return hf_tokenizers[hf_name]
     else:
-        import intermodel.hf_token
         from tokenizers import Tokenizer
 
         hf_tokenizers[hf_name] = Tokenizer.from_pretrained(
-            hf_name, auth_token=intermodel.hf_token.get_token()
+            hf_name, auth_token=get_hf_auth_token()
         )  # log in with "huggingface-cli login"
         return hf_tokenizers[hf_name]
 
@@ -406,7 +410,7 @@ def count_tokens(model: str, string: str) -> int:
     return len(tokenize(model, string))
 
 
-def untokenize(model: str, string: List[int]) -> str:
+def untokenize(model: str, token_ids: List[int]) -> str:
     model = MODEL_ALIASES.get(model, model)
     try:
         vendor = pick_vendor(model)
@@ -417,16 +421,27 @@ def untokenize(model: str, string: List[int]) -> str:
 
         # tiktoken internally caches loaded tokenizers
         tokenizer = tiktoken.encoding_for_model(model)
-        return tokenizer.decode(string)
+        return tokenizer.decode(token_ids)
     elif vendor == "anthropic":
         import anthropic
 
         # anthropic caches the tokenizer
         # XXX: this may send synchronous network requests, could be downloaded as part of build
         tokenizer = anthropic.get_tokenizer()
-        encoded_text = tokenizer.decode(string)
+        encoded_text = tokenizer.decode(token_ids)
         return encoded_text.ids
     else:
+        try:
+            tokenizer = get_hf_tokenizer(model)
+        except Exception as e:
+            if e.__class__.__name__ == "GatedRepoError":
+                raise ValueError(f"Log in with huggingface-cli to access {model}")
+            elif e.__class__.__name__ == "RepositoryNotFoundError":
+                raise NotImplementedError(f"I don't know how to tokenize {model}")
+            else:
+                raise
+        else:
+            return tokenizer.decode(token_ids)
         raise NotImplementedError(f"I don't know how to tokenize {model}")
 
 
@@ -502,7 +517,29 @@ def max_token_length(model):
     ):
         return 2049
     else:
-        raise NotImplementedError(f"Token cap not known for model {model}")
+        try:
+            import huggingface_hub
+
+            fname = huggingface_hub.hf_hub_download(
+                model, "config.json", token=get_hf_auth_token()
+            )
+            with open(fname, "r") as f:
+                import json
+
+                data = json.load(f)
+            return data["max_position_embeddings"] + 1
+        except Exception as e:
+            raise NotImplementedError(f"Token cap not known for model {model}")
+
+
+def get_hf_auth_token():
+    import huggingface_hub
+
+    try:
+        get_token = huggingface_hub.get_token
+    except AttributeError:
+        from intermodel.hf_token import get_token
+    return get_token()
 
 
 class InteractiveIntermodel(cmd.Cmd):
