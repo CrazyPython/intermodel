@@ -393,10 +393,11 @@ def get_hf_tokenizer(hf_name):
     if hf_name in hf_tokenizers:
         return hf_tokenizers[hf_name]
     else:
+        import huggingface_hub
         from tokenizers import Tokenizer
 
         hf_tokenizers[hf_name] = Tokenizer.from_pretrained(
-            hf_name, auth_token=os.getenv("HUGGING_FACE_HUB_TOKEN")
+            hf_name, auth_token=huggingface_hub.get_token()
         )  # log in with "huggingface-cli login"
         return hf_tokenizers[hf_name]
 
