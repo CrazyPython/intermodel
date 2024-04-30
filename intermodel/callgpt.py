@@ -129,6 +129,7 @@ async def complete(
         }
     elif vendor == "ai21":
         import httpx
+
         async with httpx.AsyncClient() as client:
             http_response = await client.post(
                 f"https://api.ai21.com/studio/v1/{model}/complete",
@@ -178,6 +179,7 @@ async def complete(
         pass
     elif vendor == "huggingface":
         import httpx
+
         # todo: freq and pres penalties
         async with httpx.AsyncClient() as client:
             http_response = await client.post(
@@ -233,6 +235,7 @@ async def complete(
         }
     elif vendor == "forefront":
         import httpx
+
         if "t5-20b" in model:
             prompt = prompt + " <extra_id_0>"
         async with httpx.AsyncClient() as client:
@@ -307,6 +310,7 @@ async def complete(
         }
     elif vendor == "replicate":
         import httpx
+
         async with httpx.AsyncClient() as client:
             initial_response = await client.post(
                 "https://api.replicate.com/v1/predictions",
@@ -348,6 +352,7 @@ def complete_sync(*args, **kwargs):
 
 def tokenize(model: str, string: str) -> List[int]:
     import tiktoken
+
     model = MODEL_ALIASES.get(model, model)
     try:
         vendor = pick_vendor(model)
@@ -361,6 +366,7 @@ def tokenize(model: str, string: str) -> List[int]:
         return tokenizer.encode(string, allowed_special="all")
     elif vendor == "anthropic":
         import anthropic
+
         # anthropic caches the tokenizer
         # XXX: this may send synchronous network requests, could be downloaded as part of build
         tokenizer = anthropic.get_tokenizer()
@@ -388,7 +394,10 @@ def get_hf_tokenizer(hf_name):
         return hf_tokenizers[hf_name]
     else:
         from tokenizers import Tokenizer
-        hf_tokenizers[hf_name] = Tokenizer.from_pretrained(hf_name, auth_token=True)  # log in with "huggingface-cli login"
+
+        hf_tokenizers[hf_name] = Tokenizer.from_pretrained(
+            hf_name, auth_token=os.getenv("HUGGING_FACE_HUB_TOKEN")
+        )  # log in with "huggingface-cli login"
         return hf_tokenizers[hf_name]
 
 
@@ -404,11 +413,13 @@ def untokenize(model: str, string: List[int]) -> str:
         vendor = None
     if vendor == "openai" or model == "gpt2":
         import tiktoken
+
         # tiktoken internally caches loaded tokenizers
         tokenizer = tiktoken.encoding_for_model(model)
         return tokenizer.decode(string)
     elif vendor == "anthropic":
         import anthropic
+
         # anthropic caches the tokenizer
         # XXX: this may send synchronous network requests, could be downloaded as part of build
         tokenizer = anthropic.get_tokenizer()

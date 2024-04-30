@@ -59,9 +59,12 @@ def fake_local(
             {
                 "text": completion,
                 "finish_reason": {
-                    "reason": "length"
-                    if len(enc.encode(completion, allowed_special="all")) == max_tokens
-                    else "stop"
+                    "reason": (
+                        "length"
+                        if len(enc.encode(completion, allowed_special="all"))
+                        == max_tokens
+                        else "stop"
+                    )
                 },
             }
             for completion in completions
@@ -74,7 +77,8 @@ def fake_local(
             "prompt_tokens": max(len(enc.encode(prompt, allowed_special="all")), 1),
             # if the completion is empty, the value will be missing
             "completion_tokens": completion_tokens,
-            "charged_tokens": len(enc.encode(prompt, allowed_special="all")) + completion_tokens,
+            "charged_tokens": len(enc.encode(prompt, allowed_special="all"))
+            + completion_tokens,
             "vendor": vendor,
         },
     }
