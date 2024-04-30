@@ -16,6 +16,8 @@ import intermodel.callgpt_faker
 
 from dotenv import load_dotenv
 
+from intermodel.hf_token import get_hf_tokenizer, get_hf_auth_token
+
 load_dotenv()
 
 MODEL_ALIASES = {}
@@ -391,21 +393,6 @@ def tokenize(model: str, string: str) -> List[int]:
             return tokenizer.encode(string).ids
 
 
-hf_tokenizers = {}
-
-
-def get_hf_tokenizer(hf_name):
-    if hf_name in hf_tokenizers:
-        return hf_tokenizers[hf_name]
-    else:
-        from tokenizers import Tokenizer
-
-        hf_tokenizers[hf_name] = Tokenizer.from_pretrained(
-            hf_name, auth_token=get_hf_auth_token()
-        )  # log in with "huggingface-cli login"
-        return hf_tokenizers[hf_name]
-
-
 def count_tokens(model: str, string: str) -> int:
     return len(tokenize(model, string))
 
@@ -530,16 +517,6 @@ def max_token_length(model):
             return data["max_position_embeddings"] + 1
         except Exception as e:
             raise NotImplementedError(f"Token cap not known for model {model}")
-
-
-def get_hf_auth_token():
-    import huggingface_hub
-
-    try:
-        get_token = huggingface_hub.get_token
-    except AttributeError:
-        from intermodel.hf_token import get_token
-    return get_token()
 
 
 class InteractiveIntermodel(cmd.Cmd):

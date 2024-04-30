@@ -1,3 +1,4 @@
+from intermodel.hf_token import get_hf_tokenizer
 from typing import Union, List, Optional
 
 
@@ -24,8 +25,16 @@ def fake_local(
     import string
     import time
 
-    enc: tiktoken.Encoding = tiktoken.encoding_for_model(model)
-    valid_tokens = list(enc._mergeable_ranks.keys())
+    get_hf_tokenizer(model)
+    try:
+        enc = tiktoken.encoding_for_model(model)
+        encode = lambda s: enc.encode(s, allowed_special="all")
+    except KeyError:
+        enc = get_hf_tokenizer(model)
+        encode = lambda s: enc.encode(s, add_special_tokens=True)
+        valid_tokens = list(enc.get_vocab().keys())
+    else:
+        valid_tokens = list(enc._mergeable_ranks.keys())
     completions = []
     if num_completions is None:
         num_completions = 1
@@ -33,7 +42,7 @@ def fake_local(
         n_tokens = random.randint(0, max_tokens)
         s = ""
         # try to add tokens until we reach n_tokens
-        while len(enc.encode(s, allowed_special="all")) < n_tokens:
+        while len(encode(s)) < n_tokens:
             try:
                 new_token = random.choice(valid_tokens).decode("utf-8")
             except UnicodeDecodeError:
