@@ -72,7 +72,7 @@ def fake_local(
                 "finish_reason": {
                     "reason": (
                         "length"
-                        if len(enc.encode(completion, allowed_special="all"))
+                        if len(encode(completion))
                         == max_tokens
                         else "stop"
                     )
@@ -85,10 +85,10 @@ def fake_local(
         "created": time.time(),
         "usage": {
             # openai always returns prompt_tokens: 1 minimum, even if prompt=""
-            "prompt_tokens": max(len(enc.encode(prompt, allowed_special="all")), 1),
+            "prompt_tokens": max(len(encode(prompt)), 1),
             # if the completion is empty, the value will be missing
             "completion_tokens": completion_tokens,
-            "charged_tokens": len(enc.encode(prompt, allowed_special="all"))
+            "charged_tokens": len(encode(prompt))
             + completion_tokens,
             "vendor": vendor,
         },
