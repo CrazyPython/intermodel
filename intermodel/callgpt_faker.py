@@ -56,11 +56,11 @@ def fake_local(
             else:
                 s += new_token
         # trim until we are below it
-        while len(enc.encode(s, allowed_special="all")) > n_tokens:
+        while len(encode(s)) > n_tokens:
             s = s[:-1]
         completions.append(s)
 
-    completion_tokens = sum([len(enc.encode(item)) for item in completions])
+    completion_tokens = sum([len(encode(item)) for item in completions])
 
     return {
         "prompt": {
