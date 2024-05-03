@@ -29,10 +29,12 @@ def fake_local(
     try:
         enc = tiktoken.encoding_for_model(model)
         encode = lambda s: enc.encode(s, allowed_special="all")
+        get_random_token = lambda: random.choice(valid_tokens).decode("utf-8")
     except KeyError:
         enc = get_hf_tokenizer(model)
         encode = lambda s: enc.encode(s, add_special_tokens=True)
         valid_tokens = list(enc.get_vocab().keys())
+        get_random_token = lambda: random.choice(valid_tokens)
     else:
         valid_tokens = list(enc._mergeable_ranks.keys())
     completions = []
@@ -44,7 +46,7 @@ def fake_local(
         # try to add tokens until we reach n_tokens
         while len(encode(s)) < n_tokens:
             try:
-                new_token = random.choice(valid_tokens).decode("utf-8")
+                new_token = get_random_token()
             except UnicodeDecodeError:
                 continue
             if stop is not None and new_token in stop:
