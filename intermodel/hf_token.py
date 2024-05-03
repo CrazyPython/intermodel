@@ -24,5 +24,5 @@ def get_hf_auth_token():
     try:
         get_token = huggingface_hub.get_token
     except AttributeError:
-        from intermodel.hf_token import get_token
+        from intermodel.hf_auth_token import get_token
     return get_token()
