@@ -25,7 +25,6 @@ def fake_local(
     import string
     import time
 
-    get_hf_tokenizer(model)
     try:
         enc = tiktoken.encoding_for_model(model)
         encode = lambda s: enc.encode(s, allowed_special="all")
