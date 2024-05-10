@@ -28,10 +28,12 @@ def fake_local(
     try:
         enc = tiktoken.encoding_for_model(model)
         encode = lambda s: enc.encode(s, allowed_special="all")
+        decode = lambda t: enc.decode(t)
         get_random_token = lambda: random.choice(valid_tokens).decode("utf-8")
     except KeyError:
         enc = get_hf_tokenizer(model)
         encode = lambda s: enc.encode(s, add_special_tokens=True)
+        decode = lambda s: enc.decode(s)
         valid_tokens = list(enc.get_vocab().keys())
         get_random_token = lambda: random.choice(valid_tokens)
     else:
@@ -60,10 +62,25 @@ def fake_local(
         completions.append(s)
 
     completion_tokens = sum([len(encode(item)) for item in completions])
+    if isinstance(prompt, list):
+        if len(prompt) > 0 and isinstance(prompt[0], int):
+            prompt_length = len(prompt)
+        else:
+            # unaddressed edge case
+            prompt_length = len(prompt)
+        prompt_text = decode(prompt)
+    elif isinstance(prompt, str):
+        prompt_length = len(encode(prompt))
+        if prompt is None:
+            prompt_text = get_default_prompt(model, vendor)
+        else:
+            prompt_text = prompt
+    else:
+        raise TypeError("prompt is of invalid type")
 
     return {
         "prompt": {
-            "text": prompt if prompt is not None else get_default_prompt(model, vendor)
+            "text": prompt_text
         },
         "completions": [
             {
@@ -84,10 +101,10 @@ def fake_local(
         "created": time.time(),
         "usage": {
             # openai always returns prompt_tokens: 1 minimum, even if prompt=""
-            "prompt_tokens": max(len(encode(prompt)), 1),
+            "prompt_tokens": max(prompt_length, 1),
             # if the completion is empty, the value will be missing
             "completion_tokens": completion_tokens,
-            "charged_tokens": len(encode(prompt))
+            "charged_tokens": prompt_length
             + completion_tokens,
             "vendor": vendor,
         },
