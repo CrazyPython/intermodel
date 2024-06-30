@@ -500,7 +500,7 @@ def max_token_length(model):
     elif model.startswith("text-embedding-") and model.endswith("-001"):
         return 2046
     elif model.startswith("claude-3"):
-        return 200_000
+        return 200_000 * 0.7
     elif (
         "ada" in model
         or "babbage" in model
