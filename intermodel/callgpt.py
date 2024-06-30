@@ -281,7 +281,7 @@ async def complete(
         if num_completions not in [None, 1]:
             raise NotImplementedError("Anthropic only supports num_completions=1")
         client = anthropic.Client(
-            kwargs.get("anthropic_api_key", os.getenv("ANTHROPIC_API_KEY"))
+            api_key=kwargs.get("anthropic_api_key", os.getenv("ANTHROPIC_API_KEY"))
         )
         response = await client.acompletion(
             model=model,
@@ -495,7 +495,7 @@ def max_token_length(model):
         return 8191
     elif model.startswith("text-embedding-") and model.endswith("-001"):
         return 2046
-    elif model.startswith("claude-3")
+    elif model.startswith("claude-3"):
         return 200_000
     elif (
         "ada" in model
