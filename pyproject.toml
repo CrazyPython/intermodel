@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "intermodel"
-version = "0.0.37"
+version = "0.0.38"
 description = ""
 authors = ["Your Name <you@example.com>"]
 readme = "README.md"
