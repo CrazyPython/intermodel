@@ -368,7 +368,10 @@ def tokenize(model: str, string: str) -> List[int]:
     # actual tokenizer for claude 3.x models is unknown
     if vendor == "openai" or model == "gpt2" or model.startswith("claude-3"):
         # tiktoken internally caches loaded tokenizers
-        tokenizer = tiktoken.encoding_for_model(model)
+        if model.startswith("claude-3"):
+            tokenizer = tiktoken.encoding_for_model("gpt2")
+        else:
+            tokenizer = tiktoken.encoding_for_model(model)
         # encode special tokens as normal
         # XXX: make this an option
         return tokenizer.encode(string, allowed_special="all")
