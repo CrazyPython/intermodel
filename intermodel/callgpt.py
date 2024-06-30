@@ -365,7 +365,8 @@ def tokenize(model: str, string: str) -> List[int]:
         vendor = pick_vendor(model)
     except NotImplementedError:
         vendor = None
-    if vendor == "openai" or model == "gpt2":
+    # actual tokenizer for claude 3.x models is unknown
+    if vendor == "openai" or model == "gpt2" or model.startswith("claude-3"):
         # tiktoken internally caches loaded tokenizers
         tokenizer = tiktoken.encoding_for_model(model)
         # encode special tokens as normal
