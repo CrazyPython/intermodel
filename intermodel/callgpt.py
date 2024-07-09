@@ -392,7 +392,9 @@ def tokenize(model: str, string: str) -> List[int]:
             elif e.__class__.__name__ == "RepositoryNotFoundError":
                 raise NotImplementedError(f"I don't know how to tokenize {model}")
             else:
-                raise
+                print(e)
+                print("Warning, tokenizer failure, encoding as gpt2")
+                return tokenize("gpt2", string)
         else:
             return tokenizer.encode(string).ids
 

@@ -26,10 +26,10 @@ def fake_local(
     import time
 
     try:
-        if model.startswith("claude-3"):
-            enc = tiktoken.encoding_for_model("gpt2")
-        else:
+        try:
             enc = tiktoken.encoding_for_model(model)
+        except Exception:
+            enc = tiktoken.encoding_for_model("gpt2")
         encode = lambda s: enc.encode(s, allowed_special="all")
         decode = lambda t: enc.decode(t)
         get_random_token = lambda: random.choice(valid_tokens).decode("utf-8")
