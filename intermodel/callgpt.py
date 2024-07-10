@@ -25,6 +25,7 @@ MODEL_TO_AUTHOR = {
     "flan-t5-xxl": "google",
 }
 MODEL_TO_BANANA_MODEL_KEY = {}
+untokenizable = set()
 
 try:
     OpenAIRateLimitError = openai.error.RateLimitError
@@ -383,6 +384,8 @@ def tokenize(model: str, string: str) -> List[int]:
         tokenizer = anthropic.get_tokenizer()
         encoded_text = tokenizer.encode(string)
         return encoded_text.ids
+    elif model in untokenizable:
+        return tokenize("gpt2", string)
     else:
         try:
             tokenizer = get_hf_tokenizer(model)
@@ -394,6 +397,7 @@ def tokenize(model: str, string: str) -> List[int]:
             else:
                 print(e)
                 print("Warning, tokenizer failure, encoding as gpt2")
+                untokenizable.add(model)
                 return tokenize("gpt2", string)
         else:
             return tokenizer.encode(string).ids
@@ -501,6 +505,8 @@ def max_token_length(model):
         return 8191
     elif model.startswith("text-embedding-") and model.endswith("-001"):
         return 2046
+    elif model == "claude-3-sonnet-20240229-steering-preview":
+        return int(18_000 * 0.7)
     elif model.startswith("claude-3"):
         return 200_000 * 0.7
     elif (
